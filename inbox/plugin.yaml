@@ -6,3 +6,5 @@ description: >
   evidence-aware attention lanes. Native stores remain read-only.
 author: "RohiRIK; derived from Nous Research Inbox"
 homepage: https://github.com/RohiRIK/hermes-inbox
+python_dependencies:
+  - ruamel.yaml==0.18.16

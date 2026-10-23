@@ -4,6 +4,18 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+from inbox_plugin import config_yaml
+
+
+@pytest.mark.parametrize('document', [
+    'value: !!python/name:builtins.eval',
+    'origin_name: first\norigin_name: second\n',
+])
+def test_safe_yaml_rejects_objects_and_duplicate_identity(document):
+    with pytest.raises(config_yaml.YAMLError):
+        config_yaml.safe_load(document)
+
 
 def test_snapshot_import_and_read_work_when_bare_yaml_is_unavailable(hermes_home, monkeypatch):
     root = Path(__file__).resolve().parents[1]
