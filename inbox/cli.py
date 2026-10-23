@@ -16,7 +16,9 @@ DESCRIPTION = (
 
 def setup_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print the snapshot as JSON")
-    parser.add_argument("action", nargs="?", default="view", choices=("view", "observe", "changes", "mark-seen"))
+    parser.add_argument("action", nargs="?", default="view", choices=("view", "observe", "changes", "mark-seen", "ack", "snooze"))
+    parser.add_argument("occurrence", nargs="?", type=int, help="Local observation occurrence for ack/snooze")
+    parser.add_argument("--seconds", type=float, help="Explicit snooze duration, at most seven days")
     parser.add_argument("--consumer", default="owner", help="Independent observation consumer")
     parser.add_argument("--through", type=int, help="Explicit observed sequence to mark seen")
     parser.add_argument("--fleet", action="store_true",
@@ -42,8 +44,16 @@ def handle(args: argparse.Namespace) -> int:
                 result = {"created": len(sequences), "sequences": sequences}
             elif action == "changes":
                 result = state.changes(consumer=consumer)
-            else:
+            elif action == "mark-seen":
                 result = {"cursor": state.mark_seen(consumer=consumer, upto=getattr(args, "through", None))}
+            elif action in ("ack", "snooze"):
+                from .attention import AttentionState
+                attention = AttentionState(state)
+                occurrence = getattr(args, "occurrence", None)
+                result = (attention.ack(occurrence) if action == "ack" else
+                          attention.snooze(occurrence, getattr(args, "seconds", None)))
+            else:
+                raise ValueError("unknown action")
             print(json.dumps(result, indent=2))
             return 0
         except (InboxStateError, ValueError, OSError, sqlite3.Error):

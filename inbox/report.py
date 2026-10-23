@@ -67,7 +67,7 @@ def build_inbox(home: Optional[Path] = None, fleet: bool = False) -> dict[str, A
         herald_edges = herald_data["edges"]
         herald_meta = {k: v for k, v in herald_data.items() if k != "edges"}
 
-    return {
+    snapshot = {
         "generated_at": time.time(),
         "home": str(home),
         "attention": attention,
@@ -80,6 +80,27 @@ def build_inbox(home: Optional[Path] = None, fleet: bool = False) -> dict[str, A
         "herald_meta": herald_meta,
         "threads": build_threads(herald_edges),
     }
+    _attach_attention(snapshot, home)
+    return snapshot
+
+
+def _attach_attention(snapshot: dict, home: Path) -> None:
+    from .state import InboxState, InboxStateError
+    from .observations import records
+    from yaml import YAMLError
+    snapshot["attention_state"] = {}
+    snapshot["attention_state_status"] = "unknown"
+    try:
+        profile = herald.profile_identity(home)
+        if not profile:
+            return
+        from .attention import AttentionState
+        state = InboxState(home, profile)
+        snapshot["attention_state"] = AttentionState(state).states_for(records(snapshot))
+        snapshot["attention_state_status"] = "read" if state.db_path.exists() else "absent"
+    except (InboxStateError, OSError, ValueError, YAMLError, ImportError) as exc:
+        snapshot["attention_state_status"] = "unreadable"
+        snapshot["attention_state_error"] = type(exc).__name__
 
 
 def fmt_age(seconds: Any) -> str:
