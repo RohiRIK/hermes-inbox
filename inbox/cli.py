@@ -16,11 +16,13 @@ DESCRIPTION = (
 
 def setup_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print the snapshot as JSON")
+    parser.add_argument("--fleet", action="store_true",
+                        help="Include Herald edges for the active profile (opt-in, disabled by default)")
 
 
 def handle(args: argparse.Namespace) -> int:
     from .report import build_inbox, render_inbox
 
-    data = build_inbox()
+    data = build_inbox(fleet=bool(getattr(args, "fleet", False)))
     print(json.dumps(data, indent=2, default=str) if args.json else render_inbox(data))
     return 0

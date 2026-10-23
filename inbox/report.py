@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from . import collectors as c
+from . import herald
 
 # Source name -> what the user sees in the "not read" footer.
 SOURCE_LABELS = {
@@ -16,13 +17,14 @@ SOURCE_LABELS = {
     "cron": "cron jobs (cron/jobs.json)",
     "sessions": "open sessions (runtime/active_sessions.json)",
     "kanban": "kanban board (kanban.db)",
+    "herald": "Herald edges (hermes-herald.db)",
 }
 
 _STALLED_DELEGATION_STATES = ("stalling", "stalled", "unknown")
 _RUNNING_DELEGATION_STATES = ("running", "finalizing")
 
 
-def build_inbox(home: Optional[Path] = None) -> dict[str, Any]:
+def build_inbox(home: Optional[Path] = None, fleet: bool = False) -> dict[str, Any]:
     """The full snapshot as JSON-serialisable data. ``home`` defaults to the active profile's."""
     if home is None:
         from hermes_constants import get_hermes_home
@@ -50,6 +52,20 @@ def build_inbox(home: Optional[Path] = None) -> dict[str, Any]:
     finished = [d for d in delegations
                 if d["state"] not in c.LIVE_DELEGATION_STATES and d["delivery_state"] == "pending"]
 
+    sources = {
+        name: note or "read"
+        for name, note in (("processes", n_proc), ("delegations", n_del), ("cron", n_cron),
+                           ("sessions", n_sess), ("kanban", n_kan))
+    }
+
+    herald_edges: list[dict[str, Any]] = []
+    herald_meta: dict[str, Any] = {}
+    if fleet:
+        herald_data = herald.read_fleet(home)
+        sources["herald"] = herald_data["status"]
+        herald_edges = herald_data["edges"]
+        herald_meta = {k: v for k, v in herald_data.items() if k != "edges"}
+
     return {
         "generated_at": time.time(),
         "home": str(home),
@@ -58,11 +74,9 @@ def build_inbox(home: Optional[Path] = None) -> dict[str, Any]:
         "finished_undelivered": finished,
         "cron": cron_jobs,
         "sessions": sessions,
-        "sources": {
-            name: note or "read"
-            for name, note in (("processes", n_proc), ("delegations", n_del), ("cron", n_cron),
-                               ("sessions", n_sess), ("kanban", n_kan))
-        },
+        "sources": sources,
+        "herald": herald_edges,
+        "herald_meta": herald_meta,
     }
 
 
@@ -161,6 +175,24 @@ def render_inbox(data: dict[str, Any]) -> str:
         lines.append("")
 
     _section(lines, "Open surfaces", data.get("sessions") or [], "◎", now)
+
+    herald_meta = data.get("herald_meta") or {}
+    if herald_meta:
+        lines.append(f"  Herald coverage: {herald_meta.get('coverage', 'unknown')}; "
+                     f"{herald_meta.get('incoming_coverage', 'incoming coverage unknown')}")
+        if herald_meta.get("truncated"):
+            lines.append(f"  Herald results truncated at {herald_meta.get('limit')} edges.")
+
+    herald_edges = data.get("herald") or []
+    if herald_edges:
+        lines.append(f"  ◆ Herald edges ({len(herald_edges)})")
+        lines += [
+            f"    ➤ {e['edge_id']}  [{e.get('dispatch_type')}/{e.get('delivery')}] {e.get('status')}"
+            f"  hop={e.get('hop_count')} origin={e.get('origin_profile')} target={e.get('target_profile')}"
+            f"  dispatched={e.get('dispatched_at')}"
+            for e in herald_edges
+        ]
+        lines.append("")
 
     skipped = [f"{SOURCE_LABELS.get(name, name)}: {note}"
                for name, note in (data.get("sources") or {}).items() if note != "read"]
