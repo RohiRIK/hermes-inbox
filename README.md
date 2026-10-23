@@ -1,47 +1,82 @@
-<p align="center">
-  <img src="assets/hermes-labs-plugins-banner.jpg" alt="Hermes Labs Plugins: experimental, built by Nous Research, unsupported" width="100%">
-</p>
+# Hermes Fleet Inbox
 
-<h1 align="center">Hermes Labs Plugins ⚗</h1>
+A work-and-attention inbox for Hermes agents, derived from Nous Research's Inbox plugin.
 
-<p align="center">
-  <b>Experimental plugins for <a href="https://github.com/NousResearch/hermes-agent">Hermes Agent</a> that Nous Research built but does not support.</b><br>
-  Each one works and installs from the Hermes plugin catalog, listed in the community tier.
-</p>
+**Development preview — not a released or fleet-accepted build.** The upstream
+catalog command `hermes plugins install inbox` still installs the upstream plugin,
+not this fork. Development code is not automatically installed on any profile.
 
-<p align="center">
-  <a href="https://hermes-agent.nousresearch.com/docs/plugins"><img src="https://img.shields.io/badge/Plugin_Catalog-browse-FFDE1A?style=for-the-badge&labelColor=0B0C0E" alt="Plugin Catalog"></a>
-  <a href="https://github.com/NousResearch/hermes-labs-plugins/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/NousResearch/hermes-labs-plugins/tests.yml?branch=main&style=for-the-badge&label=tests&labelColor=0B0C0E&color=103CE7" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-E5DEC9?style=for-the-badge&labelColor=0B0C0E" alt="MIT"></a>
-</p>
+## What this repository contains
 
----
+This is an **Inbox-only fork**. The unrelated Telegram Business and Workflow Record
+plugins, their tests, documentation and artwork have been removed from the current
+tree. Upstream Git history, attribution and the MIT license are preserved.
 
-## What "labs" means
+- `inbox/`: plugin implementation and tests.
+- `docs/product/`: product scope and boundaries.
+- `.github/workflows/`: Inbox validation and compatibility tests.
 
-These plugins started as Hermes features we decided not to put in the core. They are here so anyone who wants them can install them. They are **not supported**:
+## What works in the development candidate
 
-- **No promise of fixes.** A bug report may sit, and a core change may break a plugin before anyone notices. CI runs every plugin against current Hermes nightly, so breakage is at least visible.
-- **Community tier in the catalog.** The catalog shows these as community plugins, not official ones, so nobody installs one thinking Nous maintains it.
-- **Up for adoption.** If you use one and want to own it, open an issue. We'll help you move it to your own repo and point the catalog entry there.
+The original read-only snapshot covers background processes, native async
+delegations, scheduled jobs, open sessions and the shared Kanban board.
 
-Supported first-party plugins live in [hermes-official-plugins](https://github.com/NousResearch/hermes-official-plugins).
+The first Herald integration adds `--fleet` and reads locally available dispatch
+records without exposing full prompts or result previews. **This is a partial
+implementation, not proof of complete fleet coverage.** Ledger configuration,
+profile isolation and coverage disclosure are being qualified before acceptance.
+Missing or inaccessible sources must remain explicitly unavailable, not all-clear.
 
-## Plugins
-
-| Plugin | Install | What it does |
-|---|---|---|
-| [Telegram Business Mode](telegram-business/) | `hermes plugins install hermes-telegram-business` | Turns Hermes into an observe-with-approval secretary for your Telegram Business account. It drafts replies to your customers, and nothing is sent until you approve it. |
-| [Inbox](inbox/) | `hermes plugins install inbox` | `hermes inbox` shows everything in flight for the active profile in one read-only view: failed cron runs, stalled or dropped delegations, orphaned background processes and blocked kanban tasks, plus running work, undelivered results, upcoming jobs and open chat sessions. |
-| [Workflow Record](workflow-record/) | `hermes plugins install workflow-record` | `hermes record` captures a browser workflow you demonstrate once (clicks, field values, navigations; passwords masked inside the page), and its bundled skill lets `/learn` turn the recording into a skill that replays it. |
-
-## Working on a plugin
-
-Same layout and rules as the official repo: each top-level directory is one self-contained plugin with its own `plugin.yaml`, `README.md` and `tests/`. Run a suite against core with:
-
-```bash
-cd telegram-business
-HERMES_AGENT_REPO=../../hermes-agent PYTHONPATH=../../hermes-agent python -m pytest -q
+```text
+hermes inbox                 active-profile snapshot
+hermes inbox --json          machine-readable snapshot
+hermes inbox --fleet --json  candidate Herald view; requires this fork installed
 ```
 
-Merging here ships nothing to users. The release is the catalog pin on hermes-agent (`plugin-catalog/<name>.yaml`, `sha:` + `subdir:`).
+## Remaining development stages
+
+1. Qualify the Herald adapter and explicit fleet coverage.
+2. Link work threads using exact native trace and parent IDs, never titles.
+3. Persist observations and per-consumer "new since last check" cursors.
+4. Add local acknowledge/snooze state with new-failure and expiry resurfacing.
+5. Present owner/action/wait/done/unknown lanes with evidence provenance.
+6. Review a frozen artifact, verify an installed build on one profile, then
+   qualify the remaining profiles before claiming fleet readiness.
+
+These stages are **planned, not shipped** unless explicitly described otherwise
+above. A passing adapter test suite is not completion of the product plan.
+
+## Safety boundary
+
+- Native task, session, cron and dispatch stores are read-only sources.
+- Future Inbox-owned state may record observations, cursors and attention only.
+  It cannot turn a native failure into success or close the source task.
+- Execution, accepted outcome, evidence, result delivery and acknowledgment are
+  different facts; one does not prove another.
+- "Agent can act" is a classification, not execution permission.
+- Automatic status refresh, existing-result retrieval and snooze-expiry hooks
+  are plans only. They are not activated by installing this development candidate.
+- No task reruns, model/provider changes, service restarts, external sends or
+  autonomous repairs are enabled by this repository.
+- Private ledgers, runtime databases, prompts, coordination plans and credentials
+  are not repository content.
+
+## Development and installation status
+
+The plugin retains the nested `inbox/` layout. Compatibility tests run against
+Hermes core and seed isolated temporary data. A release will include the exact
+repository/subdirectory and immutable commit to install; there is no accepted
+release pin yet. Do not manually overwrite a running plugin or edit profile
+configuration to infer that this candidate is installed.
+
+Catalog eligibility is a separate maintainer-controlled process. This fork does
+not replace the upstream catalog listing and is not an officially supported Nous
+Research product.
+
+## Origin and license
+
+Derived from the Inbox plugin in
+[NousResearch/hermes-labs-plugins](https://github.com/NousResearch/hermes-labs-plugins).
+Upstream copyright notices and the [MIT license](LICENSE) are retained.
+
+Powered by caffeine and questionable life choices.
