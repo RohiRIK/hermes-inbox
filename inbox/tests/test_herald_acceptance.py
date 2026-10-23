@@ -42,14 +42,25 @@ def test_profile_home_expansion_never_uses_another_ambient_profile(hermes_home, 
 def test_tilde_path(hermes_home, monkeypatch):
     _write_ledger(hermes_home)
     monkeypatch.setenv("HOME", str(hermes_home))
+    monkeypatch.setenv("USERPROFILE", str(hermes_home))  # Path.expanduser uses this on Windows.
     (hermes_home / "config.yaml").write_text(
         "hermes_herald:\n  origin_name: alex\n  ledger_file: '~/hermes-herald.db'\n")
     assert herald.read_edges(hermes_home)["status"] == "read"
 
 
-def test_unknown_identity_never_reads_all_profiles(hermes_home):
+def test_unknown_identity_never_reads_all_profiles(hermes_home, monkeypatch):
     _write_ledger(hermes_home)
     (hermes_home / "config.yaml").write_text("{}\n")
+    # PM CI can legitimately identify an active HERMES_HOME as native default.
+    # Exercise a genuinely unknown resolver result instead of assuming host layout.
+    import hermes_constants
+    monkeypatch.setattr(hermes_constants, "profile_name_for_home", lambda home: None)
+    assert herald.profile_identity(hermes_home) == ""
+
+    def forbidden_read(*args, **kwargs):
+        raise AssertionError("unknown identity must not open a source database")
+
+    monkeypatch.setattr(herald.sqlite3, "connect", forbidden_read)
     result = herald.read_edges(hermes_home)
     assert result["status"] != "read"
     assert result["edges"] == []
