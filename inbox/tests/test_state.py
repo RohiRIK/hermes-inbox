@@ -97,7 +97,10 @@ def test_fresh_database_four_concurrent_callers(tmp_path):
 
 
 def test_path_with_sqlite_uri_punctuation(tmp_path):
-    store = InboxState(tmp_path / "scope?#fragment", "alex")
+    # '?' is not a legal Windows filename; '#' and '%' exercise URI quoting there.
+    import os
+    scope = "scope%#fragment" if os.name == "nt" else "scope?%#fragment"
+    store = InboxState(tmp_path / scope, "alex")
     store.observe([item()])
     assert len(store.changes()["events"]) == 1
 

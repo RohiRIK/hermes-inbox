@@ -36,7 +36,7 @@ def handle(args: argparse.Namespace) -> int:
         from .state import InboxState, InboxStateError
         from .observations import records
         import sqlite3
-        from yaml import YAMLError
+        from hermes_yaml import YAMLError
         try:
             home = get_hermes_home()
             state = InboxState(home, profile_identity(home))

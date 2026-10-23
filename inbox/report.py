@@ -99,7 +99,7 @@ def build_inbox(home: Optional[Path] = None, fleet: bool = False) -> dict[str, A
 def _attach_attention(snapshot: dict, home: Path) -> None:
     from .state import InboxState, InboxStateError
     from .observations import records
-    from yaml import YAMLError
+    from hermes_yaml import YAMLError
     snapshot["attention_state"] = {}
     snapshot["profile"] = None
     snapshot["attention_state_status"] = "unknown"
