@@ -1,31 +1,14 @@
 # Hermes Fleet Inbox
 
-A work-and-attention inbox for Hermes agents, derived from Nous Research's Inbox plugin.
+A fleet-aware work-and-attention inbox for Hermes agents, derived from Nous Research's Inbox plugin. Herald integration enables same-host profile-ledger aggregation, exact-ID work threads, and explicit local observation coverage.
 
-**Development preview — not a released or fleet-accepted build.** The upstream
-catalog command `hermes plugins install inbox` still installs the upstream plugin,
-not this fork. Development code is not automatically installed on any profile.
+![Hermes Fleet Inbox banner](assets/fleet-inbox-banner.svg)
 
-## What this repository contains
+## Core capabilities
 
-This is an **Inbox-only fork**. The unrelated Telegram Business and Workflow Record
-plugins, their tests, documentation and artwork have been removed from the current
-tree. Upstream Git history, attribution and the MIT license are preserved.
+The original read-only snapshot covers background work, native async delegations, scheduled jobs, open sessions and the shared Kanban board.
 
-- `inbox/`: plugin implementation and tests.
-- `docs/product/`: product scope and boundaries.
-- `.github/workflows/`: Inbox validation and compatibility tests.
-
-## What works in the development candidate
-
-The original read-only snapshot covers background processes, native async
-delegations, scheduled jobs, open sessions and the shared Kanban board.
-
-The first Herald integration adds `--fleet` and reads locally available dispatch
-records without exposing full prompts or result previews. **This is a partial
-implementation, not proof of complete fleet coverage.** Ledger configuration,
-profile isolation and coverage disclosure are being qualified before acceptance.
-Missing or inaccessible sources must remain explicitly unavailable, not all-clear.
+Herald integration adds `--fleet` for same-host native profile-ledger discovery, exact-ID work threads, scoped configuration and explicit coverage/truncation metadata. It excludes full prompts and result previews. This does not establish remote-host coverage, accepted task outcomes or user delivery.
 
 ```text
 hermes inbox                 active-profile snapshot
@@ -33,50 +16,75 @@ hermes inbox --json          machine-readable snapshot
 hermes inbox --fleet --json  candidate Herald view; requires this fork installed
 ```
 
-## Remaining development stages
+![Actual CLI output using isolated native-schema fixtures, not live fleet data](assets/fleet-inbox-cli.png)
 
-1. Qualify the Herald adapter and explicit fleet coverage.
-2. Link work threads using exact native trace and parent IDs, never titles.
-3. Persist observations and per-consumer "new since last check" cursors.
-4. Add local acknowledge/snooze state with new-failure and expiry resurfacing.
-5. Present owner/action/wait/done/unknown lanes with evidence provenance.
-6. Review a frozen artifact, verify an installed build on one profile, then
-   qualify the remaining profiles before claiming fleet readiness.
+The example is captured candidate output rendered as an image, not a mock web UI
+or a screenshot of private fleet activity.
 
-These stages are **planned, not shipped** unless explicitly described otherwise
-above. A passing adapter test suite is not completion of the product plan.
+## Explicit local observations
+
+```text
+hermes inbox observe --fleet            ingest a bounded snapshot explicitly
+hermes inbox changes --consumer owner --json
+hermes inbox mark-seen --consumer owner --through <observed-sequence>
+hermes inbox ack <observed-sequence>     acknowledge this occurrence locally
+hermes inbox snooze <observed-sequence> --seconds 60
+```
+
+Only explicit observation, cursor and attention actions write the plugin-owned `<profile-home>/inbox/state.db`. Repeated identical observations do not create duplicate events; consumer cursors are independent. Native source stores are not updated.
+
+## Attention, without invented certainty
+
+Five lanes separate **Needs owner**, **Agent can act**, **Waiting**, **Done** and
+**Unknown**. They preserve source identity, responsibility where known, execution,
+accepted outcome, delivery, references and local observation sequence numbers.
+Completed execution alone is not an accepted outcome. Missing approval, action or
+acceptance facts stay unknown; the lanes do not manufacture those facts.
+
+Acknowledgment applies to one observed occurrence, not the source task. A changed
+failure reappears; snooze expiry reappears on the next view without a background
+job. Consumer cursors are independent and never advance just by viewing changes.
+References are explicitly unverified; a path or hash is not proof of acceptance.
+
+## Before marketplace distribution
+
+The [live-pilot checklist](docs/product/live-pilot.md) requires a frozen reviewed
+artifact, native installation testing, a controlled live lifecycle on the default
+profile, persistence/isolation/failure checks, normal-work observation, and then
+sequential profile qualification. A green source suite is not fleet acceptance.
+Catalog admission is a separate maintainer decision, never an automatic outcome.
 
 ## Safety boundary
 
 - Native task, session, cron and dispatch stores are read-only sources.
-- Future Inbox-owned state may record observations, cursors and attention only.
-  It cannot turn a native failure into success or close the source task.
-- Execution, accepted outcome, evidence, result delivery and acknowledgment are
-  different facts; one does not prove another.
+- Inbox-owned state records observations, cursors and attention only. It cannot turn a native failure into success or close the source task.
+- Execution, accepted outcome, evidence, result delivery and acknowledgment are different facts; one does not prove another.
 - "Agent can act" is a classification, not execution permission.
-- Automatic status refresh, existing-result retrieval and snooze-expiry hooks
-  are plans only. They are not activated by installing this development candidate.
-- No task reruns, model/provider changes, service restarts, external sends or
-  autonomous repairs are enabled by this repository.
-- Private ledgers, runtime databases, prompts, coordination plans and credentials
-  are not repository content.
+- Automatic status refresh, existing-result retrieval and snooze-expiry hooks are plans only. They are not activated by installing this development candidate.
+- No task reruns, model/provider changes, service restarts, external sends or autonomous repairs are enabled by this repository.
+- Private ledgers, runtime databases, prompts, coordination plans and credentials are not repository content.
 
 ## Development and installation status
 
-The plugin retains the nested `inbox/` layout. Compatibility tests run against
-Hermes core and seed isolated temporary data. A release will include the exact
-repository/subdirectory and immutable commit to install; there is no accepted
-release pin yet. Do not manually overwrite a running plugin or edit profile
-configuration to infer that this candidate is installed.
+The plugin retains the nested `inbox/` layout. Compatibility tests run against Hermes core and seed isolated temporary data. A release will include the exact repository/subdirectory and immutable commit to install; there is no accepted release pin yet. Do not manually overwrite a running plugin or edit profile configuration to infer that this candidate is installed.
 
-Catalog eligibility is a separate maintainer-controlled process. This fork does
-not replace the upstream catalog listing and is not an officially supported Nous
-Research product.
+Use a reviewed immutable commit with the native installer:
+
+```text
+hermes plugins install RohiRIK/hermes-inbox/inbox --ref <40-character-commit> --enable
+```
+
+This shares the upstream `inbox` plugin ID: replace it deliberately with a backup,
+not side by side. `hermes plugins install inbox` selects the upstream catalog
+entry, not this fork. See the [plugin reference](inbox/README.md) for bounds and
+configuration. Nothing automatically polls, retries tasks or contacts agents.
+
+Catalog eligibility is a separate maintainer-controlled process. This fork does not replace the upstream catalog listing and is not an officially supported Nous Research product.
 
 ## Origin and license
 
 Derived from the Inbox plugin in
 [NousResearch/hermes-labs-plugins](https://github.com/NousResearch/hermes-labs-plugins).
-Upstream copyright notices and the [MIT license](LICENSE) are retained.
+Upstream copyright notices and the MIT license are retained.
 
 Powered by caffeine and questionable life choices.

@@ -7,10 +7,11 @@ import json
 
 HELP = "Show everything in flight: background work, results, cron, sessions, kanban"
 DESCRIPTION = (
-    "A read-only view of Hermes activity for the active profile: what needs your attention "
+    "View Hermes activity without changing native task stores: what needs your attention "
     "(stalled or dropped delegations, failed cron runs, orphaned background processes, blocked "
     "kanban tasks), what is in progress, finished delegation results not yet delivered, upcoming "
-    "cron jobs and open chat surfaces. Nothing is changed."
+    "cron jobs and open chat surfaces. Explicit observe, mark-seen, ack and snooze actions "
+    "write only Inbox-owned local state. --fleet adds same-host Herald observations."
 )
 
 
@@ -22,7 +23,7 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--consumer", default="owner", help="Independent observation consumer")
     parser.add_argument("--through", type=int, help="Explicit observed sequence to mark seen")
     parser.add_argument("--fleet", action="store_true",
-                        help="Include Herald edges for the active profile (opt-in, disabled by default)")
+                        help="Include same-host profile Herald ledgers (opt-in, disabled by default)")
 
 
 def handle(args: argparse.Namespace) -> int:
@@ -35,6 +36,7 @@ def handle(args: argparse.Namespace) -> int:
         from .state import InboxState, InboxStateError
         from .observations import records
         import sqlite3
+        from yaml import YAMLError
         try:
             home = get_hermes_home()
             state = InboxState(home, profile_identity(home))
@@ -50,13 +52,20 @@ def handle(args: argparse.Namespace) -> int:
                 from .attention import AttentionState
                 attention = AttentionState(state)
                 occurrence = getattr(args, "occurrence", None)
-                result = (attention.ack(occurrence) if action == "ack" else
-                          attention.snooze(occurrence, getattr(args, "seconds", None)))
+                if occurrence is None:
+                    raise InboxStateError("an observed occurrence is required")
+                if action == "ack":
+                    result = attention.ack(occurrence)
+                else:
+                    seconds = getattr(args, "seconds", None)
+                    if seconds is None:
+                        raise InboxStateError("an explicit snooze duration is required")
+                    result = attention.snooze(occurrence, seconds)
             else:
                 raise ValueError("unknown action")
             print(json.dumps(result, indent=2))
             return 0
-        except (InboxStateError, ValueError, OSError, sqlite3.Error):
+        except (InboxStateError, ValueError, OSError, sqlite3.Error, YAMLError):
             print(json.dumps({"error": "Local Inbox state unavailable or invalid action input"}))
             return 2
     data = build_inbox(fleet=bool(getattr(args, "fleet", False)))

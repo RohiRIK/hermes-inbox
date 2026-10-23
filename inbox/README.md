@@ -17,7 +17,7 @@ Installation will be qualified against the actual nested repository layout and
 immutable source revision before rollout. The shared plugin ID means replacement,
 not side-by-side installation with upstream.
 
-## Implemented candidate commands
+## Implemented commands
 
 ```text
 hermes inbox                  active-profile snapshot
@@ -25,6 +25,11 @@ hermes inbox --json           structured snapshot
 hermes inbox --fleet           opt-in same-host Herald ledger view
 hermes inbox --fleet --json    structured fleet observations and coverage
 hermes -p work inbox           selected profile; plugin must be installed there
+hermes inbox observe --fleet   explicitly record a bounded snapshot
+hermes inbox changes --consumer owner --json
+hermes inbox mark-seen --consumer owner --through <observed-sequence>
+hermes inbox ack <observed-sequence>
+hermes inbox snooze <observed-sequence> --seconds 60
 ```
 
 The default snapshot includes processes, native asynchronous delegations, cron,
@@ -67,9 +72,36 @@ JSON, not treated as verified all-clear. Kanban remains a shared upstream store.
 In-memory approvals and clarify prompts have no durable cross-process source;
 answer them in the conversation that asked.
 
-Persistent observations, consumer cursors, acknowledge/snooze and attention lanes
-remain subsequent core stages. They will use plugin-owned state, not write native
-truth. Proposed automatic hooks remain unactivated.
+## Local observations and attention
+
+Explicit `observe`, `mark-seen`, `ack` and `snooze` actions write only
+`<profile-home>/inbox/state.db`. Viewing and `changes` create no database and
+advance no cursor. Repeated identical snapshots create no duplicate events;
+an observed state change followed by a return to an old state is a new occurrence.
+Use the `seq` returned by `changes` for acknowledgments and `--through`.
+Without `--through`, `mark-seen` explicitly marks all currently observed events
+seen for that consumer; it is not limited to the first returned page.
+
+Acknowledgment and snooze affect one occurrence only, never source execution,
+outcome or delivery. Expiry is checked on the next view; no scheduler is started.
+Unknown occurrences and non-finite or excessive snooze durations are rejected.
+The snooze maximum is seven days. Each consumer and profile has independent state.
+
+Five lanes classify explicit known facts: Needs owner, Agent can act, Waiting,
+Done and Unknown. `Agent can act` grants no execution permission. `Done` requires
+an explicit accepted outcome, not merely a successful exit or completed dispatch.
+Current source readers may not provide approval/action/acceptance facts; these
+remain unknown. Source conflicts also remain unknown. Evidence references are
+reported as unverified; next steps appear only if explicitly supplied.
+
+Native delegation observations are capped at 20 with overflow disclosed; recent
+delivered completions are included within the seven-day completion window. This
+is not an unlimited task-history export. Unlinked native items remain distinct
+from Herald threads: similar names never establish a relationship.
+
+Proposed automatic refresh/result-retrieval hooks remain unactivated. These are
+recorded snapshots, not live task heartbeats. The native CLI reads current stores
+each time it runs; it does not continuously monitor or infer remote-host state.
 
 ## Development
 
