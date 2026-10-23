@@ -16,6 +16,9 @@ DESCRIPTION = (
 
 def setup_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--json", action="store_true", help="Print the snapshot as JSON")
+    parser.add_argument("action", nargs="?", default="view", choices=("view", "observe", "changes", "mark-seen"))
+    parser.add_argument("--consumer", default="owner", help="Independent observation consumer")
+    parser.add_argument("--through", type=int, help="Explicit observed sequence to mark seen")
     parser.add_argument("--fleet", action="store_true",
                         help="Include Herald edges for the active profile (opt-in, disabled by default)")
 
@@ -23,6 +26,29 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
 def handle(args: argparse.Namespace) -> int:
     from .report import build_inbox, render_inbox
 
+    action = getattr(args, "action", "view")
+    if action != "view":
+        from hermes_constants import get_hermes_home
+        from .herald import profile_identity
+        from .state import InboxState, InboxStateError
+        from .observations import records
+        import sqlite3
+        try:
+            home = get_hermes_home()
+            state = InboxState(home, profile_identity(home))
+            consumer = getattr(args, "consumer", "owner")
+            if action == "observe":
+                sequences = state.observe(records(build_inbox(home=home, fleet=bool(getattr(args, "fleet", False)))))
+                result = {"created": len(sequences), "sequences": sequences}
+            elif action == "changes":
+                result = state.changes(consumer=consumer)
+            else:
+                result = {"cursor": state.mark_seen(consumer=consumer, upto=getattr(args, "through", None))}
+            print(json.dumps(result, indent=2))
+            return 0
+        except (InboxStateError, ValueError, OSError, sqlite3.Error):
+            print(json.dumps({"error": "Local Inbox state unavailable or invalid action input"}))
+            return 2
     data = build_inbox(fleet=bool(getattr(args, "fleet", False)))
     print(json.dumps(data, indent=2, default=str) if args.json else render_inbox(data))
     return 0
