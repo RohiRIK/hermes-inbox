@@ -14,7 +14,7 @@ def records(snapshot: dict) -> list[dict]:
         raw = json.dumps(facts, sort_keys=True, separators=(",", ":"), default=str)
         items[key] = {"id": key, "kind": kind, "state": str(state or "unknown"),
                       "fingerprint": hashlib.sha256(raw.encode()).hexdigest()}
-    for section in ("attention", "in_progress", "finished_undelivered", "cron", "sessions"):
+    for section in ("native", "attention", "in_progress", "finished_undelivered", "cron", "sessions"):
         for item in snapshot.get(section, []):
             kind = item.get("kind", "unknown")
             identity = item.get("id") or item.get("session_id")

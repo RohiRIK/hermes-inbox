@@ -95,13 +95,15 @@ def collect_processes(home: Path) -> tuple[Items, Note]:
     return out, None
 
 
-def collect_delegations(home: Path, limit: int = 20) -> tuple[Items, Note]:
+def collect_delegations(home: Path, limit: int = 20, *, include_completed: bool = False) -> tuple[Items, Note]:
     """Async delegations from ``state.db``: running ones, finished ones whose result has not
     reached its conversation yet, and results dropped after failed deliveries in the last week."""
     db = home / "state.db"
     if not db.exists():
         return [], "absent"
     live = ",".join(f"'{s}'" for s in LIVE_DELEGATION_STATES)
+    completed_clause = " OR (delivery_state = 'delivered' AND COALESCE(completed_at, dispatched_at) >= ?)" if include_completed else ""
+    cutoff = time.time() - DROPPED_WINDOW_S
     try:
         conn = _connect_ro(db)
         try:
@@ -112,10 +114,11 @@ def collect_delegations(home: Path, limit: int = 20) -> tuple[Items, Note]:
                     WHERE state IN ({live})
                        OR delivery_state = 'pending'
                        OR (delivery_state = 'dropped' AND COALESCE(completed_at, dispatched_at) >= ?)
+                       {completed_clause}
                     ORDER BY CASE WHEN state IN ({live}) THEN 0 ELSE 1 END,
                              COALESCE(completed_at, dispatched_at) DESC
                     LIMIT ?""",
-                (time.time() - DROPPED_WINDOW_S, limit),
+                (cutoff, cutoff, limit) if include_completed else (cutoff, limit),
             ).fetchall()
         finally:
             conn.close()
