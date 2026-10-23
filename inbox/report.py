@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from . import collectors as c
 from . import herald
+from .threads import build_threads
 
 # Source name -> what the user sees in the "not read" footer.
 SOURCE_LABELS = {
@@ -77,6 +78,7 @@ def build_inbox(home: Optional[Path] = None, fleet: bool = False) -> dict[str, A
         "sources": sources,
         "herald": herald_edges,
         "herald_meta": herald_meta,
+        "threads": build_threads(herald_edges),
     }
 
 
@@ -161,9 +163,14 @@ def _section(lines: list[str], title: str, items: list, mark: str, now: float, e
 def render_inbox(data: dict[str, Any]) -> str:
     now = data.get("generated_at") or time.time()
     lines: list[str] = [""]
-    _section(lines, "Needs attention", data.get("attention") or [], "⚠", now, "nothing — all clear")
-    _section(lines, "In progress", data.get("in_progress") or [], "◐", now,
-             "nothing running in the background")
+    meta = data.get("herald_meta") or {}
+    incomplete = (any(v != "read" for v in (data.get("sources") or {}).values())
+                  or meta.get("truncated")
+                  or any(s.get("status") != "read" for s in meta.get("sources", [])))
+    empty_attention = "no recorded attention items — coverage incomplete" if incomplete else "nothing — all clear"
+    empty_running = "no recorded running items — coverage incomplete" if incomplete else "nothing running in the background"
+    _section(lines, "Needs attention", data.get("attention") or [], "⚠", now, empty_attention)
+    _section(lines, "In progress", data.get("in_progress") or [], "◐", now, empty_running)
     _section(lines, "Finished, result not yet delivered", data.get("finished_undelivered") or [], "✔", now)
 
     active = [j for j in data.get("cron") or [] if j.get("enabled") and not j.get("paused")]
@@ -192,6 +199,14 @@ def render_inbox(data: dict[str, Any]) -> str:
             f"  dispatched={e.get('dispatched_at')}"
             for e in herald_edges
         ]
+        lines.append("")
+
+    work_threads = data.get("threads") or []
+    if work_threads:
+        lines.append(f"  ◆ Work threads ({len(work_threads)})")
+        for thread in work_threads:
+            lines.append(f"    · {thread['id']} execution={thread['execution']} "
+                         f"outcome={thread['outcome']} delivery={','.join(thread['delivery'])}")
         lines.append("")
 
     skipped = [f"{SOURCE_LABELS.get(name, name)}: {note}"

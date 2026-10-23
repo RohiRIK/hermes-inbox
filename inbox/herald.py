@@ -87,7 +87,7 @@ def read_edges(home: Path, limit: int = 20, profile: str | None = None) -> dict:
 
 def read_fleet(home: Path, limit: int = 20) -> dict:
     """Opt-in view of discoverable local profile ledgers; never contacts peers."""
-    from hermes_constants import get_default_hermes_root, named_profile_has_identity
+    from hermes_constants import get_default_hermes_root, named_profile_has_identity, named_profile_is_deleted
     home = Path(home).expanduser().resolve()
     root = get_default_hermes_root().resolve()
     homes = [home]
@@ -98,7 +98,8 @@ def read_fleet(home: Path, limit: int = 20) -> dict:
         profile_dir = root / "profiles"
         if profile_dir.is_dir():
             candidates += sorted((p for p in profile_dir.iterdir()
-                                  if p.is_dir() and named_profile_has_identity(p)), key=lambda p: p.name)
+                                  if p.is_dir() and named_profile_has_identity(p)
+                                  and not named_profile_is_deleted(p)), key=lambda p: p.name)
         sources_truncated = len(candidates) > 33
         homes += [p for p in candidates[:33] if p.resolve() != home]
     sources, unique = [], {}

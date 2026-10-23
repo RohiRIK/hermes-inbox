@@ -116,7 +116,7 @@ def _write_ledger(home, rows=EDGE_ROWS):
 class TestHeraldAdapterSchemaFixtures:
     def test_read_edges_returns_nonempty_schema_fixtures(self, hermes_home):
         _write_ledger(hermes_home)
-        from inbox import herald
+        from inbox_plugin import herald
         result = herald.read_edges(hermes_home)
         assert result["status"] == "read"
         edges = result["edges"]
@@ -128,7 +128,7 @@ class TestHeraldAdapterSchemaFixtures:
 
     def test_full_message_and_instructions_never_appear(self, hermes_home):
         _write_ledger(hermes_home)
-        from inbox import herald
+        from inbox_plugin import herald
         result = herald.read_edges(hermes_home)
         for e in result["edges"]:
             assert "message" not in e
@@ -138,7 +138,7 @@ class TestHeraldAdapterSchemaFixtures:
 
     def test_limit_clamped_to_schema_cap(self, hermes_home):
         _write_ledger(hermes_home)
-        from inbox import herald
+        from inbox_plugin import herald
         big = herald.read_edges(hermes_home, limit=10**9)
         assert big["status"] == "read"
         assert len(big["edges"]) == len(EDGE_ROWS)
@@ -149,14 +149,14 @@ class TestHeraldAdapterSchemaFixtures:
 
     def test_truncation_metadata_when_limit_below_rows(self, hermes_home):
         _write_ledger(hermes_home)
-        from inbox import herald
+        from inbox_plugin import herald
         result = herald.read_edges(hermes_home, limit=2)
         assert len(result["edges"]) == 2
         assert result["truncated"] is True
 
     def test_origin_target_isolation_and_hop_count(self, hermes_home):
         _write_ledger(hermes_home)
-        from inbox import herald
+        from inbox_plugin import herald
         # Without profile scoping, all edges are read.
         all_result = herald.read_edges(hermes_home)
         by_edge = {e["edge_id"]: e for e in all_result["edges"]}
@@ -177,14 +177,14 @@ class TestHeraldAdapterSchemaFixtures:
 
 class TestHeraldMissingAndFailure:
     def test_missing_ledger_returns_absent_status(self, hermes_home):
-        from inbox import herald
+        from inbox_plugin import herald
         result = herald.read_edges(hermes_home)
         assert result["status"] == "absent"
         assert result["edges"] == []
 
     def test_unreadable_ledger_degrades_gracefully(self, hermes_home):
         (hermes_home / "hermes-herald.db").write_bytes(b"not sqlite data")
-        from inbox import herald
+        from inbox_plugin import herald
         result = herald.read_edges(hermes_home)
         assert result["status"] == "unreadable"
         assert result["edges"] == []
@@ -233,5 +233,5 @@ class TestHeraldReportAndCli:
         assert data["herald"] == []
 
     def test_missing_ledger_non_fleet(self, hermes_home):
-        from inbox import herald
+        from inbox_plugin import herald
         assert herald.read_edges(hermes_home)["status"] == "absent"
